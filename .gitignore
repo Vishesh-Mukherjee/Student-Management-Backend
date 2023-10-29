@@ -1,4 +1,5 @@
 *.sh
 __pycache__/
 *.db
-monitor.py
+.vscode/
+exp.py

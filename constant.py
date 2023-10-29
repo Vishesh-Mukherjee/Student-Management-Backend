@@ -1,4 +1,4 @@
-class Constant:
+class DatabaseColumn:
     ID = "id"
     INSTRUCTOR_ID = "instructor_id"
     DEPARTMENT = "department"
@@ -17,3 +17,13 @@ class Constant:
 
     AND = "AND"
     OR = "OR"
+
+    FIRST_NAME = "first_name"
+    LAST_NAME = "last_name"
+    AGE = "age"
+
+class Error:
+    CLASS_DOES_NOT_EXISTS = "Class does not exists"
+
+class Query:
+    STUDENT_COUNT = "SELECT COUNT(*) FROM student"

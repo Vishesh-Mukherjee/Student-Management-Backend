@@ -22,6 +22,7 @@ def create_database():
             PRIMARY KEY (id)
         )
     ''')
+
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS enrollment (
@@ -35,9 +36,26 @@ def create_database():
             FOREIGN KEY (class_id) REFERENCES class(id)
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS student (
+            id VARCHAR(36) NOT NULL,
+            first_name VARCHAR(50) NOT NULL,
+            last_name VARCHAR(50) NOT NULL,
+            age TINYINT NOT NULL
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS instructor (
+            id VARCHAR(36) NOT NULL,
+            first_name VARCHAR(50) NOT NULL,
+            last_name VARCHAR(50) NOT NULL,
+            age TINYINT NOT NULL
+        )
+    ''')
     
     conn.commit()
     conn.close()
-
 
 create_database()
