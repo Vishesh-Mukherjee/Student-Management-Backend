@@ -55,58 +55,8 @@ def valid_age(age: int):
         return False
     return True
 
-def get_dummy_class():
-    return {
-        DatabaseColumn.INSTRUCTOR_ID: "INS",
-        DatabaseColumn.DEPARTMENT: "DEP",
-        DatabaseColumn.COURSE_CODE: "COR",
-        DatabaseColumn.SECTION_NUMBER: 1,
-        DatabaseColumn.CLASS_NAME: "CLA",
-        DatabaseColumn.CURRENT_ENROLLMENT: 0,
-        DatabaseColumn.MAX_ENROLLMENT: 10,
-        DatabaseColumn.AUTOMATIC_ENROLLMENT_FROZEN: True,
-    }
-
-def get_dummy_classes():
-    return [
-        {
-            DatabaseColumn.INSTRUCTOR_ID: "INS101",
-            DatabaseColumn.DEPARTMENT: "FOO",
-            DatabaseColumn.COURSE_CODE: "BAR",
-            DatabaseColumn.SECTION_NUMBER: 1,
-            DatabaseColumn.CLASS_NAME: "BAZ",
-            DatabaseColumn.CURRENT_ENROLLMENT: 0,
-            DatabaseColumn.MAX_ENROLLMENT: 10,
-            DatabaseColumn.AUTOMATIC_ENROLLMENT_FROZEN: True,
-        },
-        {
-            DatabaseColumn.INSTRUCTOR_ID: "INS102",
-            DatabaseColumn.DEPARTMENT: "QUX",
-            DatabaseColumn.COURSE_CODE: "QUUX",
-            DatabaseColumn.SECTION_NUMBER: 1,
-            DatabaseColumn.CLASS_NAME: "CORGE",
-            DatabaseColumn.CURRENT_ENROLLMENT: 0,
-            DatabaseColumn.MAX_ENROLLMENT: 10,
-            DatabaseColumn.AUTOMATIC_ENROLLMENT_FROZEN:False,
-        },
-        {
-            DatabaseColumn.INSTRUCTOR_ID: "INS103",
-            DatabaseColumn.DEPARTMENT: "GRAULT",
-            DatabaseColumn.COURSE_CODE: "GRAPLY",
-            DatabaseColumn.SECTION_NUMBER: 1,
-            DatabaseColumn.CLASS_NAME: "WALDO",
-            DatabaseColumn.CURRENT_ENROLLMENT: 0,
-            DatabaseColumn.MAX_ENROLLMENT: 15,
-            DatabaseColumn.AUTOMATIC_ENROLLMENT_FROZEN: True,
-        },
-    ]
-
 def insert_test_data(conn: connect):
     cursor = conn.cursor()
-
-    cursor.execute('DELETE FROM class')
-    cursor.execute('DELETE FROM student')
-
     cursor.execute('''
         INSERT INTO class ('id', instructor_id, department, course_code, section_number, class_name, current_enrollment, max_enrollment, automatic_enrollment_frozen) VALUES
             ('c25ccf22-4539-4810-b78b-81049b546bf1', 'INS101', 'FOO', 'BAR', 1, 'BAZ', 0, 10, true),
@@ -120,4 +70,10 @@ def insert_test_data(conn: connect):
             ('52e9c54c-1880-4920-a322-ca7a7bc3c8c7', 'Baz', 'Qux', 20),
             ('41359222-8d72-4dd7-a697-91bd5146aa58', 'Quux', 'Corge', 20);
     ''')
+    conn.commit()
+
+def clear_tables(conn: connect):
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM class')
+    cursor.execute('DELETE FROM student')
     conn.commit()

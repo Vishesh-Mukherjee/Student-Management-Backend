@@ -27,3 +27,4 @@ class Error:
 
 class Query:
     STUDENT_COUNT = "SELECT COUNT(*) FROM student"
+    CLASS_COUNT = "SELECT COUNT(*) FROM class"
