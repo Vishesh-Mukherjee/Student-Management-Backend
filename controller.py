@@ -3,6 +3,7 @@ from sqlite3 import connect, Row
 from service import ClassService, EnrollmentService, ProfileService
 import logging
 from fastapi import FastAPI
+from constant import Message
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.DEBUG)
@@ -20,53 +21,54 @@ app = FastAPI()
 
 @app.post("/registrar/student")
 def add_student(field: Field):
-    return prepare_response_dict(student_profile_service.add_profile(field))
+    logger.info("Adding new student. Student name: %s %s", field.firstName, field.lastName)
+    response = prepare_response_dict(student_profile_service.add_profile(field))
+    logger.info("Student added successfully")
+    return response
 
 @app.put("/registrar/student")
 def update_student(field: Field):
-    return prepare_response_dict(student_profile_service.update_profile(field))
+    logger.info("Updating student. Student ID: %s", field.id)
+    response = prepare_response_dict(student_profile_service.update_profile(field))
+    logger.info("Student updated sucessfully")
+    return response
 
 @app.get("/registrar/student/{id}")
-def update_student(field: Field, id: str):
+def get_student(id: str):
+    logger.info("Searching student. Student ID: %s", id)
     return prepare_response_dict(student_profile_service.get_profile(id))
 
 @app.delete("/registrar/student/{id}")
 def delete_student(id: str):
+    logger.info("Deleting student. Student ID: %s", id)
     student_profile_service.delete_profile(id)
-    return {"msg": "Student deleted successfully"}
+    logger.info(Message.STUDENT_DELETE_SUCCESSFULLY)
+    return {"msg": Message.STUDENT_DELETE_SUCCESSFULLY}
 
 @app.post("/registrar/instructor")
 def add_student(field: Field):
-    return prepare_response_dict(instructor_profile_service.add_profile(field))
+    logger.info("Adding new instructor. Instructor name: %s %s", field)
+    response = prepare_response_dict(instructor_profile_service.add_profile(field))
+    logger.info("Instructor added successfully")
+    return response
 
 @app.put("/registrar/instructor")
 def update_student(field: Field):
-    return prepare_response_dict(instructor_profile_service.update_profile(field))
+    logger.info("Updating instructor. Instructor ID: %s", field.id)
+    response = prepare_response_dict(instructor_profile_service.update_profile(field))
+    logger.info("Instructor updated successfully")
+    return response
 
 @app.get("/registrar/instructor/{id}")
-def update_student(field: Field, id: str):
+def get_instructor(id: str):
+    logger.info("Searching instructor. Instructor ID: %s", id)
     return prepare_response_dict(instructor_profile_service.get_profile(id))
 
 @app.delete("/registrar/instructor/{id}")
 def delete_student(id: str):
+    logger.info("Deleting instructor. Instructor ID: %s", id)
     instructor_profile_service.delete_profile(id)
-    return {"msg": "Instructor deleted successfully"}
-
-@app.post("/registrar/instructor")
-def add_student(field: Field):
-    return prepare_response_dict(student_profile_service.add_profile(field))
-
-@app.put("/registrar/instructor")
-def update_student(field: Field):
-    return prepare_response_dict(student_profile_service.update_profile(field))
-
-@app.get("/registrar/instructor/{id}")
-def update_student(field: Field, id: str):
-    return prepare_response_dict(student_profile_service.get_profile(id))
-
-@app.delete("/registrar/instructor/{id}")
-def delete_student(id: str):
-    student_profile_service.delete_profile(id)
+    logger.info(Message.INSTRUCTOR_DELETE_SUCCESSFULLY)
     return {"msg": "Instructor deleted successfully"}
 
 @app.post("/registrar/class")

@@ -22,8 +22,11 @@ class DatabaseColumn:
     LAST_NAME = "last_name"
     AGE = "age"
 
-class Error:
+class Message:
     CLASS_DOES_NOT_EXISTS = "Class does not exists"
+    PROFLIE_NOT_FOUND = "Profile not found"
+    STUDENT_DELETE_SUCCESSFULLY = "Student delete successfully"
+    INSTRUCTOR_DELETE_SUCCESSFULLY = "Instructor delete successfully"
 
 class Query:
     STUDENT_COUNT = "SELECT COUNT(*) FROM student"

@@ -2,7 +2,7 @@ from repository import ClassRepository, EnrollmentRepository, ProfileRepository
 from util import DatabaseColumn, Field, get_find_class_dict, is_blank, valid_age
 from sqlite3 import Connection, IntegrityError
 from logging import Logger
-from constant import DatabaseColumn, Error
+from constant import DatabaseColumn, Message
 from fastapi import HTTPException, status
 from datetime import datetime
 
@@ -33,7 +33,7 @@ class ClassService:
     def remove_section(self, field: Field):
         class_data = get_find_class_dict(field)
         if not self._class_repository.exists_by_attribute(class_data):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Error.CLASS_DOES_NOT_EXISTS)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.CLASS_DOES_NOT_EXISTS)
         try:
             self._class_repository.delete_by_attribute(class_data)
             self._conn.commit()
@@ -44,7 +44,7 @@ class ClassService:
     def update_instructor(self, field: Field):
         class_data = self._class_repository.find_by_attribute(get_find_class_dict(field))
         if class_data is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Error.CLASS_DOES_NOT_EXISTS)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.CLASS_DOES_NOT_EXISTS)
         class_data[DatabaseColumn.INSTRUCTOR_ID] = field.instructorId
         try:
             self._class_repository.save(class_data)
@@ -67,7 +67,7 @@ class EnrollmentService:
     def enroll(self, field: Field):
         class_data = self._class_repository.find_by_attribute(get_find_class_dict(field))
         if class_data is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Error.CLASS_DOES_NOT_EXISTS)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.CLASS_DOES_NOT_EXISTS)
         if class_data[DatabaseColumn.AUTOMATIC_ENROLLMENT_FROZEN]:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Enrollment has been frozen")
         if class_data[DatabaseColumn.CURRENT_ENROLLMENT] - class_data[DatabaseColumn.MAX_ENROLLMENT] >= 15:
@@ -150,7 +150,7 @@ class EnrollmentService:
     def _get_class_data(self, field: Field):
         class_data = self._class_repository.find_by_attribute(get_find_class_dict(field))
         if class_data is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Error.CLASS_DOES_NOT_EXISTS)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.CLASS_DOES_NOT_EXISTS)
         return class_data
     
 
@@ -158,6 +158,7 @@ class ProfileService:
 
     def __init__(self, conn: Connection, table_name: str, logger: Logger):
         self._conn = conn
+        self._logger = logger
         self._profile_repository = ProfileRepository(conn, table_name, logger)
 
     def add_profile(self, field: Field):
@@ -167,20 +168,22 @@ class ProfileService:
         return saved_student
     
     def get_profile(self, id: str):
-        return self._profile_repository.find_by_attribute({DatabaseColumn.ID: id})
+        profile = self._profile_repository.find_by_attribute({DatabaseColumn.ID: id})
+        if profile is None:
+            self._logger.error(Message.PROFLIE_NOT_FOUND)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.PROFLIE_NOT_FOUND)
+        return profile
 
     def update_profile(self, field: Field):
         profile = self._profile_repository.find_by_attribute({DatabaseColumn.ID: field.id})
         if profile is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profile not found")
+            self._logger.error(Message.PROFLIE_NOT_FOUND)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.PROFLIE_NOT_FOUND)
         self._validate_details(field)
         profile[DatabaseColumn.ID] = field.id
-        if field.firstName is not None:
-            profile[DatabaseColumn.FIRST_NAME] = field.firstName
-        if field.lastName is not None:
-            profile[DatabaseColumn.LAST_NAME] = field.lastName
-        if field.age is not None:
-            profile[DatabaseColumn.AGE] = field.age
+        profile[DatabaseColumn.FIRST_NAME] = field.firstName
+        profile[DatabaseColumn.LAST_NAME] = field.lastName
+        profile[DatabaseColumn.AGE] = field.age
         saved_profile = self._profile_repository.save(profile)
         self._conn.commit()
         return saved_profile
@@ -188,11 +191,13 @@ class ProfileService:
     def delete_profile(self, id: str):
         profile_id_dict = {DatabaseColumn.ID: id}
         if not self._profile_repository.find_by_attribute(profile_id_dict):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profile not found")
+            self._logger.error(Message.PROFLIE_NOT_FOUND)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.PROFLIE_NOT_FOUND)
         try:
             self._profile_repository.delete_by_attribute(profile_id_dict)
             self._conn.commit()
         except IntegrityError as e:
+            self._logger.error("Profile deletion failed")
             self._conn.rollback()
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"type": type(e).__name__, "msg": str(e)})
 
@@ -208,6 +213,7 @@ class ProfileService:
         if not valid_age(age):
             invalid_details.append("Age cannot be less than 1 or greater than 110")
         if len(invalid_details) != 0:
+            self._logger.error("Invalid details: %s", invalid_details)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=", ".join(invalid_details))
         return {
             DatabaseColumn.FIRST_NAME: first_name,
