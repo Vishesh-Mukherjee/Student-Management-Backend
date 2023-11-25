@@ -9,49 +9,43 @@ from datetime import datetime
 
 class ClassService:
 
-    def __init__(self, conn: Connection, table_name: str, logger: Logger):
+    def __init__(self, conn: Connection, class_table_name: str, instructor_table_name: str, log: Logger):
         self._conn = conn
-        self._class_repository = ClassRepository(conn, table_name, logger)
+        self._log = log
+        self._class_repository = ClassRepository(conn, class_table_name, log)
+        self._instructor_repository = ProfileRepository(conn, instructor_table_name, log)
 
     def add_class(self, field: Field):
+        if not self._instructor_repository.exists_by_attribute({DatabaseColumn.ID: field.instructorId}):
+            self._log.info("Instructor does not exists. Instructor ID: %s", field.instructorId)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Instructor does not exists")
         class_data = get_find_class_dict(field)
         if self._class_repository.exists_by_attribute(class_data):
+            self._log.info("Class already exists. Department: %s. Course Code: %s. Section Number %s", field.department, field.courseCode, field.sectionNumber)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Class already exists")
         class_data[DatabaseColumn.INSTRUCTOR_ID] = field.instructorId
         class_data[DatabaseColumn.CLASS_NAME] = field.className
         class_data[DatabaseColumn.CURRENT_ENROLLMENT] = 0
         class_data[DatabaseColumn.MAX_ENROLLMENT] = field.maxEnrollment
         class_data[DatabaseColumn.AUTOMATIC_ENROLLMENT_FROZEN] = field.automaticEnrollmentFrozen
-        try:
-            saved_class_data = self._class_repository.save(class_data)
-            self._conn.commit()
-            return saved_class_data
-        except IntegrityError as e:
-            self._conn.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"type": type(e).__name__, "msg": str(e)})
+        saved_class_data = self._class_repository.save(class_data)
+        self._conn.commit()
+        return saved_class_data
         
-    def remove_section(self, field: Field):
-        class_data = get_find_class_dict(field)
-        if not self._class_repository.exists_by_attribute(class_data):
+    def delete_class(self, id: str):
+        id_dict = {DatabaseColumn.ID: id}
+        if not self._class_repository.exists_by_attribute(id_dict):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.CLASS_DOES_NOT_EXISTS)
-        try:
-            self._class_repository.delete_by_attribute(class_data)
-            self._conn.commit()
-        except IntegrityError as e:
-            self._conn.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"type": type(e).__name__, "msg": str(e)})
+        self._class_repository.delete_by_attribute(id_dict)
+        self._conn.commit()
         
-    def update_instructor(self, field: Field):
-        class_data = self._class_repository.find_by_attribute(get_find_class_dict(field))
+    def update_instructor(self, id: str, instructor_id: str):
+        class_data = self._class_repository.find_by_attribute({DatabaseColumn.ID: id})
         if class_data is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.CLASS_DOES_NOT_EXISTS)
-        class_data[DatabaseColumn.INSTRUCTOR_ID] = field.instructorId
-        try:
-            self._class_repository.save(class_data)
-            self._conn.commit()
-        except IntegrityError as e:
-            self._conn.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"type": type(e).__name__, "msg": str(e)})
+        class_data[DatabaseColumn.INSTRUCTOR_ID] = instructor_id
+        self._class_repository.save(class_data)
+        self._conn.commit()
         
     def available_classes(self):
         return self._class_repository.findAllAvailableClasses()
@@ -59,10 +53,10 @@ class ClassService:
 
 class EnrollmentService:
 
-    def __init__(self, conn: Connection, table_name: str, logger: Logger):
+    def __init__(self, conn: Connection, enrollment_table_name: str, class_table_name: str, log: Logger):
         self._conn = conn
-        self._class_repository = ClassRepository(conn, table_name, logger)
-        self._enrollment_repository = EnrollmentRepository(conn, "enrollment", logger)
+        self._class_repository = ClassRepository(conn, class_table_name, log)
+        self._enrollment_repository = EnrollmentRepository(conn, enrollment_table_name, log)
 
     def enroll(self, field: Field):
         class_data = self._class_repository.find_by_attribute(get_find_class_dict(field))
@@ -86,9 +80,8 @@ class EnrollmentService:
             self._enrollment_repository.save(enrollment_data)
             self._class_repository.save(class_data)
             self._conn.commit()
-        except IntegrityError as e:
+        except Exception:
             self._conn.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"type": type(e).__name__, "msg": str(e)})
 
     def drop_enrollment(self, field: Field):
         class_data = self._get_class_data(field)
@@ -119,9 +112,8 @@ class EnrollmentService:
             if migrate_enrollment is not None:
                 self._enrollment_repository.save(migrate_enrollment)
             self._conn.commit()
-        except IntegrityError as e:
+        except Exception:
             self._conn.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"type": type(e).__name__, "msg": str(e)})
 
     def waiting_list_position(self, field: Field):
         class_data = self._get_class_data(field)
@@ -156,10 +148,10 @@ class EnrollmentService:
 
 class ProfileService:
 
-    def __init__(self, conn: Connection, table_name: str, logger: Logger):
+    def __init__(self, conn: Connection, table_name: str, log: Logger):
         self._conn = conn
-        self._logger = logger
-        self._profile_repository = ProfileRepository(conn, table_name, logger)
+        self._log = log
+        self._profile_repository = ProfileRepository(conn, table_name, log)
 
     def add_profile(self, field: Field):
         student = self._validate_details(field)
@@ -170,14 +162,14 @@ class ProfileService:
     def get_profile(self, id: str):
         profile = self._profile_repository.find_by_attribute({DatabaseColumn.ID: id})
         if profile is None:
-            self._logger.error(Message.PROFLIE_NOT_FOUND)
+            self._log.error(Message.PROFLIE_NOT_FOUND)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.PROFLIE_NOT_FOUND)
         return profile
 
     def update_profile(self, field: Field):
         profile = self._profile_repository.find_by_attribute({DatabaseColumn.ID: field.id})
         if profile is None:
-            self._logger.error(Message.PROFLIE_NOT_FOUND)
+            self._log.error(Message.PROFLIE_NOT_FOUND)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.PROFLIE_NOT_FOUND)
         self._validate_details(field)
         profile[DatabaseColumn.ID] = field.id
@@ -191,15 +183,10 @@ class ProfileService:
     def delete_profile(self, id: str):
         profile_id_dict = {DatabaseColumn.ID: id}
         if not self._profile_repository.find_by_attribute(profile_id_dict):
-            self._logger.error(Message.PROFLIE_NOT_FOUND)
+            self._log.error(Message.PROFLIE_NOT_FOUND)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=Message.PROFLIE_NOT_FOUND)
-        try:
-            self._profile_repository.delete_by_attribute(profile_id_dict)
-            self._conn.commit()
-        except IntegrityError as e:
-            self._logger.error("Profile deletion failed")
-            self._conn.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"type": type(e).__name__, "msg": str(e)})
+        self._profile_repository.delete_by_attribute(profile_id_dict)
+        self._conn.commit()
 
     def _validate_details(self, field: Field):
         first_name = field.firstName
@@ -207,13 +194,15 @@ class ProfileService:
         age = field.age
         invalid_details = []
         if is_blank(first_name):
+            self._log.error("Invalid first name: %s", first_name)
             invalid_details.append("Firstname cannot be blank")
         if is_blank(last_name):
+            self._log.error("Invalid last name: %s", last_name)
             invalid_details.append("Lastname cannot be blank")
         if not valid_age(age):
+            self._log.error("Invalid age: %s", age)
             invalid_details.append("Age cannot be less than 1 or greater than 110")
         if len(invalid_details) != 0:
-            self._logger.error("Invalid details: %s", invalid_details)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=", ".join(invalid_details))
         return {
             DatabaseColumn.FIRST_NAME: first_name,

@@ -27,6 +27,7 @@ class Message:
     PROFLIE_NOT_FOUND = "Profile not found"
     STUDENT_DELETE_SUCCESSFULLY = "Student delete successfully"
     INSTRUCTOR_DELETE_SUCCESSFULLY = "Instructor delete successfully"
+    CLASS_INSTRUCTOR_UPDATED_SUCCESSFULLY = "Class instructor updated successfully"
 
 class Query:
     STUDENT_COUNT = "SELECT COUNT(*) FROM student"
